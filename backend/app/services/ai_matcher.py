@@ -1,0 +1,76 @@
+import json
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.prompts import PromptTemplate
+from app.core.config import settings
+
+class AIMatcher:
+    def __init__(self):
+        # We use a lightweight local model for vector embeddings to calculate similarity
+        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        # We can configure this to use OpenAI or Gemini based on the available key
+        # Defaulting to Gemini as requested in system preferences
+        api_key = getattr(settings, "OPENAI_API_KEY", "dummy_key")
+        self.llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", google_api_key=api_key) if "AIza" in api_key else ChatGoogleGenerativeAI(model="gemini-1.5-pro", google_api_key="mock")
+
+    def calculate_similarity(self, resume_text: str, jd_text: str) -> float:
+        """
+        Embeds both texts and computes cosine similarity using ChromaDB locally.
+        """
+        try:
+            # Create a temporary in-memory chroma store with the JD
+            vectorstore = Chroma.from_texts(
+                texts=[jd_text],
+                embedding=self.embeddings
+            )
+            # Perform similarity search with score
+            # similarity_search_with_score returns (Document, score) where score is L2 distance for Chroma
+            results = vectorstore.similarity_search_with_score(resume_text, k=1)
+            if not results:
+                return 0.0
+                
+            distance = results[0][1]
+            # Convert L2 distance to similarity score (0 to 100)
+            # Smaller distance means higher similarity.
+            similarity = max(0.0, 100.0 - (distance * 50.0))
+            return round(min(100.0, similarity), 2)
+        except Exception as e:
+            print(f"Embedding error: {e}")
+            return 0.0
+
+    def analyze_gaps(self, resume_text: str, jd_text: str) -> dict:
+        """
+        Uses LLM to analyze missing skills from the resume compared to the JD.
+        """
+        prompt = PromptTemplate(
+            input_variables=["resume", "jd"],
+            template='''You are an expert tech recruiter and AI gap analyzer.
+Compare the following Resume with the Job Description.
+Identify what core skills or qualifications are missing from the resume to be a 100% match.
+Return the result strictly as a valid JSON object with the key "missing_skills" which is a list of strings (each string is a clear, actionable bullet point).
+
+Resume:
+{resume}
+
+Job Description:
+{jd}
+
+Output JSON only:'''
+        )
+        try:
+            chain = prompt | self.llm
+            response = chain.invoke({"resume": resume_text, "jd": jd_text})
+            text = response.content.strip()
+            if text.startswith("```json"):
+                text = text[7:-3]
+            elif text.startswith("```"):
+                text = text[3:-3]
+            
+            result = json.loads(text.strip())
+            return result
+        except Exception as e:
+            print(f"LLM gap analysis error: {e}")
+            return {"missing_skills": ["Error analyzing gaps"]}
+
+ai_matcher = AIMatcher()
