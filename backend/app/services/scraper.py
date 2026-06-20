@@ -1,41 +1,45 @@
-import time
 import requests
-import html2text
+from app.core.config import settings
 
 class DynamicJobScraper:
     def __init__(self):
+        self.api_key = settings.JSEARCH_API_KEY
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            "x-rapidapi-host": "jsearch.p.rapidapi.com",
+            "x-rapidapi-key": self.api_key
         }
-        self.html_converter = html2text.HTML2Text()
-        self.html_converter.ignore_links = True
-        self.html_converter.ignore_images = True
-        self.html_converter.body_width = 0
 
-    def scrape_jobs_for_profile(self, keywords: str, limit: int = 15) -> list:
-        """Hits the Remotive API with extracted keywords and returns job descriptions."""
-        print(f"Searching Remotive API for: {keywords}")
-        url = f"https://remotive.com/api/remote-jobs?search={requests.utils.quote(keywords)}&limit={limit}"
+    def scrape_jobs_for_profile(self, keywords: str, limit: int = 10) -> list:
+        """Hits the JSearch API to fetch real jobs (LinkedIn, Glassdoor, etc)."""
+        if not self.api_key:
+            print("Warning: JSEARCH_API_KEY is not set. Cannot fetch jobs.")
+            return []
+            
+        print(f"Searching JSearch API for: {keywords}")
+        url = "https://jsearch.p.rapidapi.com/search"
+        querystring = {"query": f"{keywords}", "page": "1", "num_pages": "1"}
+        
         jobs = []
         try:
-            resp = requests.get(url, headers=self.headers, timeout=10)
+            resp = requests.get(url, headers=self.headers, params=querystring, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
-                results = data.get("jobs", [])
+                results = data.get("data", [])
                 for item in results[:limit]:
-                    clean_desc = self.html_converter.handle(item.get("description", ""))
-                    clean_desc = clean_desc[:10000] # Limit tokens
-                    if len(clean_desc) > 100:
+                    desc = item.get("job_description", "")
+                    if desc:
                         jobs.append({
-                            "title": item.get("title", "Job Posting")[:100],
-                            "company": item.get("company_name", "Unknown Company")[:100],
-                            "description": clean_desc,
-                            "url": item.get("url", "")
+                            "title": item.get("job_title", "Job Posting")[:100],
+                            "company": item.get("employer_name", "Unknown Company")[:100],
+                            "description": desc[:10000],
+                            "url": item.get("job_apply_link", "")
                         })
+            else:
+                print(f"JSearch API returned status {resp.status_code}")
         except Exception as e:
-            print(f"Remotive API error: {e}")
+            print(f"JSearch API error: {e}")
             
-        print(f"Successfully scraped {len(jobs)} jobs from internet.")
+        print(f"Successfully scraped {len(jobs)} jobs from internet via JSearch.")
         return jobs
 
 dynamic_scraper = DynamicJobScraper()
