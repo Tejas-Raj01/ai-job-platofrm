@@ -39,24 +39,24 @@ class AIMatcher:
             print(f"Embedding error: {e}")
             return 0.0
 
-    def extract_job_title(self, resume_text: str) -> str:
-        """Uses LLM to determine the ideal job title for a resume."""
+    def extract_search_keywords(self, resume_text: str) -> str:
+        """Uses LLM to determine the highly condensed search string for a resume."""
         prompt = PromptTemplate(
             input_variables=["resume"],
-            template='''Analyze this resume and determine the primary target job title in 2-4 words.
-Example: Software Engineer, Product Manager, Data Scientist.
+            template='''Analyze this resume and extract a highly condensed search string (max 4-5 words) of the core role and primary skill.
+Example: "Senior React Developer" or "Python Backend Engineer".
 
 Resume:
 {resume}
 
-Respond ONLY with the job title and nothing else:'''
+Respond ONLY with the search string and nothing else:'''
         )
         try:
             chain = prompt | self.llm
             response = chain.invoke({"resume": resume_text[:5000]})
             return response.content.strip().strip('"').replace('\n', '')
         except Exception as e:
-            print(f"Title extraction error: {e}")
+            print(f"Keyword extraction error: {e}")
             return "Software Engineer"
 
     def find_top_jobs(self, resume_text: str, jobs: list, top_k: int = 10) -> list:
@@ -96,13 +96,11 @@ Respond ONLY with the job title and nothing else:'''
 
     def analyze_gaps(self, resume_text: str, jd_text: str) -> dict:
         """
-        Uses LLM to analyze missing skills from the resume compared to the JD.
+        Uses LLM to perform gap analysis based on exact user requested prompt.
         """
         prompt = PromptTemplate(
             input_variables=["resume", "jd"],
-            template='''You are an expert tech recruiter and AI gap analyzer.
-Compare the following Resume with the Job Description.
-Identify what core skills or qualifications are missing from the resume to be a 100% match.
+            template='''Compare this Resume with this JD. What specific keywords, projects, or phrasing are missing from the resume to make it a 100% match for this exact job?
 Return the result strictly as a valid JSON object with the key "missing_skills" which is a list of strings (each string is a clear, actionable bullet point).
 
 Resume:

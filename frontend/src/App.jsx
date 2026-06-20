@@ -17,12 +17,12 @@ export default function App() {
   const handleFindJobs = async () => {
     if (!resumeId) return;
     setLoading(true);
-    setLoadingMsg("Extracting profile & scraping live internet job boards...");
+    setLoadingMsg("Extracting keywords & searching live internet job boards...");
     try {
-      const response = await fetch(`http://localhost:8000/api/resumes/${resumeId}/find_jobs`, {
+      const response = await fetch(`http://localhost:8000/api/resumes/${resumeId}/analyze-and-fetch`, {
         method: 'POST'
       });
-      if (!response.ok) throw new Error('Failed to find jobs');
+      if (!response.ok) throw new Error('Failed to fetch and analyze jobs');
       const data = await response.json();
       setTopJobs(data.matches || []);
       
