@@ -1,18 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-slate-900 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-white;
+    @apply bg-background text-zinc-300 font-sans antialiased min-h-screen selection:bg-primary-500/30 selection:text-white;
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-slate-800/50 backdrop-blur-md border border-slate-700/50 shadow-xl rounded-2xl;
+    @apply bg-surface/80 backdrop-blur-xl border border-surfaceBorder rounded-2xl shadow-2xl;
   }
+  
+  .glass-card {
+    @apply bg-surface border border-surfaceBorder rounded-xl transition-all duration-300 hover:border-zinc-700 hover:bg-surfaceHover;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  }
+
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-400 to-cyan-400;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-accent-400;
+  }
+  
+  /* Custom scrollbar for webkit */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-zinc-700 rounded-full hover:bg-zinc-600 transition-colors;
   }
 }

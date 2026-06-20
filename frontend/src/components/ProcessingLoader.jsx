@@ -1,22 +1,52 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 
 export default function ProcessingLoader() {
   return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <div className="relative w-24 h-24">
-        {/* Outer spinning ring */}
-        <div className="absolute inset-0 rounded-full border-4 border-slate-700 border-t-brand-500 animate-spin"></div>
-        {/* Inner pulsing circle */}
-        <div className="absolute inset-2 rounded-full bg-brand-500/20 animate-pulse"></div>
-        {/* Core icon */}
-        <div className="absolute inset-0 flex items-center justify-center text-brand-400">
-          <svg className="w-8 h-8 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+    <div className="flex flex-col items-center justify-center space-y-8 p-10">
+      <div className="relative w-32 h-32 flex items-center justify-center">
+        {/* Outer glowing rings */}
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-0 rounded-full border border-primary-500/30 border-t-primary-400"
+        />
+        <motion.div 
+          animate={{ rotate: -360 }}
+          transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-2 rounded-full border border-accent-500/20 border-b-accent-400"
+        />
+        
+        {/* Core glow */}
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-6 rounded-full bg-primary-600/20 blur-xl"
+        />
+        
+        {/* Center Icon */}
+        <div className="relative z-10 w-12 h-12 rounded-full bg-surface border border-surfaceBorder flex items-center justify-center shadow-lg shadow-primary-500/20">
+          <Sparkles className="w-6 h-6 text-primary-400" />
         </div>
       </div>
-      <h3 className="mt-8 text-xl font-bold text-slate-200">Analyzing Match...</h3>
-      <p className="mt-2 text-slate-400 max-w-sm text-center text-sm">
-        Our AI is comparing your skills against the job description using vector embeddings.
-      </p>
+
+      <div className="text-center space-y-2">
+        <h3 className="text-xl font-semibold text-zinc-100 tracking-tight">AI Analysis in Progress</h3>
+        <p className="text-sm text-zinc-500 max-w-xs mx-auto">
+          Vectorizing your resume and cross-referencing semantic gaps using Gemini 1.5 Pro...
+        </p>
+      </div>
+
+      {/* Progress Bar Mock */}
+      <div className="w-64 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <motion.div 
+          className="h-full bg-gradient-to-r from-primary-500 to-accent-500"
+          initial={{ width: "0%" }}
+          animate={{ width: "100%" }}
+          transition={{ duration: 15, ease: "circOut" }}
+        />
+      </div>
     </div>
   );
 }

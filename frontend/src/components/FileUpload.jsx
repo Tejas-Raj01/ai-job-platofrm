@@ -1,13 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { UploadCloud, FileText, CheckCircle2, Loader2, X } from 'lucide-react';
 
-export default function FileUpload({ onUploadComplete }) {
+export default function FileUpload({ onUploadComplete, resumeId }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const inputRef = useRef(null);
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
     }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleChange = (e) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleFile = (selectedFile) => {
+    if (selectedFile.type !== "application/pdf") {
+      alert("Please upload a PDF file.");
+      return;
+    }
+    setFile(selectedFile);
   };
 
   const handleUpload = async () => {
@@ -17,7 +49,6 @@ export default function FileUpload({ onUploadComplete }) {
     formData.append('file', file);
 
     try {
-      // Hardcoded user_id=1 for demo
       const response = await fetch('http://localhost:8000/api/resumes/upload?user_id=1', {
         method: 'POST',
         body: formData,
@@ -27,29 +58,116 @@ export default function FileUpload({ onUploadComplete }) {
       onUploadComplete(data.resume_id);
     } catch (error) {
       console.error("Upload error:", error);
+      alert("Failed to upload file. Is the backend running?");
     } finally {
       setUploading(false);
     }
   };
 
+  const removeFile = () => {
+    setFile(null);
+    onUploadComplete(null);
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-600 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors">
-      <svg className="w-10 h-10 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-      <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium">
-        Select PDF
-        <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
-      </label>
-      {file && <p className="mt-3 text-sm text-slate-300">{file.name}</p>}
-      
-      {file && (
-        <button 
-          onClick={handleUpload}
-          disabled={uploading}
-          className="mt-4 w-full bg-brand-600 hover:bg-brand-500 text-white py-2 rounded-lg font-medium transition-all disabled:opacity-50"
-        >
-          {uploading ? 'Uploading...' : 'Confirm Upload'}
-        </button>
-      )}
+    <div className="w-full">
+      <AnimatePresence mode="wait">
+        {resumeId && file ? (
+          <motion.div 
+            key="success"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-green-400" />
+              </div>
+              <div className="truncate">
+                <p className="text-sm font-medium text-green-100 truncate">{file.name}</p>
+                <p className="text-xs text-green-400/70">Processed & ready for analysis</p>
+              </div>
+            </div>
+            <button 
+              onClick={removeFile}
+              className="p-2 hover:bg-green-500/20 rounded-full transition-colors text-green-400"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="upload"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div 
+              className={`
+                relative group flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-2xl transition-all duration-300
+                ${dragActive 
+                  ? 'border-primary-400 bg-primary-400/5 shadow-[0_0_30px_rgba(99,102,241,0.15)]' 
+                  : file ? 'border-zinc-600 bg-surface' : 'border-zinc-700 bg-surface/50 hover:bg-surface hover:border-zinc-600'}
+              `}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={handleChange}
+              />
+              
+              {!file ? (
+                <>
+                  <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <UploadCloud className={`w-7 h-7 ${dragActive ? 'text-primary-400' : 'text-zinc-400'}`} />
+                  </div>
+                  <h3 className="text-lg font-medium text-zinc-200 mb-1">Upload your Resume</h3>
+                  <p className="text-sm text-zinc-500 mb-6 text-center max-w-xs">
+                    Drag and drop your PDF file here, or click to browse from your computer.
+                  </p>
+                  <button 
+                    onClick={() => inputRef.current?.click()}
+                    className="px-5 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-sm font-medium text-zinc-200 transition-colors"
+                  >
+                    Select PDF
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col items-center w-full">
+                  <div className="flex items-center gap-3 bg-zinc-800/50 px-4 py-3 rounded-lg border border-zinc-700 w-full max-w-sm mb-6">
+                    <FileText className="w-6 h-6 text-primary-400 flex-shrink-0" />
+                    <span className="text-sm text-zinc-200 truncate">{file.name}</span>
+                    <button onClick={removeFile} className="ml-auto text-zinc-500 hover:text-red-400 transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <button 
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className="w-full max-w-sm flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-500 text-white py-3 rounded-xl font-medium transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Processing PDF...
+                      </>
+                    ) : (
+                      'Confirm & Process'
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
