@@ -56,5 +56,20 @@ services:
       - redis
     command: celery -A app.worker.celery_app worker --loglevel=info
 
+  frontend:
+    build:
+      context: ./frontend
+    container_name: job_platform_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+
 volumes:
   postgres_data:
