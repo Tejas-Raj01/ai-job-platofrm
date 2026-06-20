@@ -17,7 +17,7 @@ export default function App() {
   const handleFindJobs = async () => {
     if (!resumeId) return;
     setLoading(true);
-    setLoadingMsg("Vectorizing resume and searching database for top matches...");
+    setLoadingMsg("Extracting profile & scraping live internet job boards...");
     try {
       const response = await fetch(`http://localhost:8000/api/resumes/${resumeId}/find_jobs`, {
         method: 'POST'

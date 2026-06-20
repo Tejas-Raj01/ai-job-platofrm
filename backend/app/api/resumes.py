@@ -5,6 +5,7 @@ from app.core.database import get_db
 from app.models.domain import User, Resume, JobPosting, AnalysisResult
 from app.services.pdf_parser import document_processor
 from app.services.ai_matcher import ai_matcher
+from app.services.scraper import dynamic_scraper
 
 router = APIRouter()
 
@@ -67,14 +68,42 @@ def match_resume(resume_id: int, job_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{resume_id}/find_jobs")
 def find_matching_jobs(resume_id: int, db: Session = Depends(get_db)):
-    """Finds the best matching jobs for a given resume."""
+    """Finds the best matching jobs for a given resume by dynamically searching the internet."""
     resume = db.query(Resume).filter(Resume.id == resume_id).first()
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
         
-    jobs = db.query(JobPosting).all()
-    if not jobs:
-        return {"matches": []}
+    # 1. Extract ideal job title
+    title = ai_matcher.extract_job_title(resume.parsed_text)
+    
+    # 2. Dynamically scrape jobs from the internet
+    scraped_data = dynamic_scraper.scrape_jobs_for_profile(title, limit=8)
+    
+    if not scraped_data:
+        # Fallback to DB jobs if scraping fails or returns 0
+        db_jobs = db.query(JobPosting).all()
+        if not db_jobs:
+            return {"matches": []}
+        return {"matches": ai_matcher.find_top_jobs(resume.parsed_text, db_jobs, top_k=10)}
         
-    matches = ai_matcher.find_top_jobs(resume.parsed_text, jobs, top_k=10)
+    # 3. Save new jobs to DB to get IDs
+    fresh_jobs = []
+    for data in scraped_data:
+        job = db.query(JobPosting).filter(JobPosting.url == data["url"]).first()
+        if not job:
+            job = JobPosting(
+                title=data["title"],
+                company=data["company"],
+                description=data["description"],
+                url=data["url"]
+            )
+            db.add(job)
+        fresh_jobs.append(job)
+        
+    db.commit()
+    for job in fresh_jobs:
+        db.refresh(job)
+        
+    # 4. Rank them against the resume
+    matches = ai_matcher.find_top_jobs(resume.parsed_text, fresh_jobs, top_k=8)
     return {"matches": matches}

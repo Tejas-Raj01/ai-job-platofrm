@@ -39,6 +39,26 @@ class AIMatcher:
             print(f"Embedding error: {e}")
             return 0.0
 
+    def extract_job_title(self, resume_text: str) -> str:
+        """Uses LLM to determine the ideal job title for a resume."""
+        prompt = PromptTemplate(
+            input_variables=["resume"],
+            template='''Analyze this resume and determine the primary target job title in 2-4 words.
+Example: Software Engineer, Product Manager, Data Scientist.
+
+Resume:
+{resume}
+
+Respond ONLY with the job title and nothing else:'''
+        )
+        try:
+            chain = prompt | self.llm
+            response = chain.invoke({"resume": resume_text[:5000]})
+            return response.content.strip().strip('"').replace('\n', '')
+        except Exception as e:
+            print(f"Title extraction error: {e}")
+            return "Software Engineer"
+
     def find_top_jobs(self, resume_text: str, jobs: list, top_k: int = 10) -> list:
         """
         Embeds a list of jobs and finds the top K matches for the resume.
