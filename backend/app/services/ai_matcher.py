@@ -39,6 +39,41 @@ class AIMatcher:
             print(f"Embedding error: {e}")
             return 0.0
 
+    def find_top_jobs(self, resume_text: str, jobs: list, top_k: int = 10) -> list:
+        """
+        Embeds a list of jobs and finds the top K matches for the resume.
+        """
+        if not jobs:
+            return []
+            
+        try:
+            texts = [job.description for job in jobs]
+            metadatas = [{"id": job.id, "title": job.title, "company": job.company} for job in jobs]
+            
+            vectorstore = Chroma.from_texts(
+                texts=texts,
+                metadatas=metadatas,
+                embedding=self.embeddings
+            )
+            
+            results = vectorstore.similarity_search_with_score(resume_text, k=min(top_k, len(jobs)))
+            
+            matches = []
+            for doc, distance in results:
+                similarity = max(0.0, 100.0 - (distance * 50.0))
+                score = round(min(100.0, similarity), 2)
+                matches.append({
+                    "job_id": doc.metadata["id"],
+                    "title": doc.metadata["title"],
+                    "company": doc.metadata["company"],
+                    "match_score": score
+                })
+                
+            return sorted(matches, key=lambda x: x["match_score"], reverse=True)
+        except Exception as e:
+            print(f"Top jobs error: {e}")
+            return []
+
     def analyze_gaps(self, resume_text: str, jd_text: str) -> dict:
         """
         Uses LLM to analyze missing skills from the resume compared to the JD.

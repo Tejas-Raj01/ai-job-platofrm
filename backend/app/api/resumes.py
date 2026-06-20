@@ -64,3 +64,17 @@ def match_resume(resume_id: int, job_id: int, db: Session = Depends(get_db)):
         "match_score": score,
         "missing_skills": gaps.get("missing_skills", [])
     }
+
+@router.post("/{resume_id}/find_jobs")
+def find_matching_jobs(resume_id: int, db: Session = Depends(get_db)):
+    """Finds the best matching jobs for a given resume."""
+    resume = db.query(Resume).filter(Resume.id == resume_id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+        
+    jobs = db.query(JobPosting).all()
+    if not jobs:
+        return {"matches": []}
+        
+    matches = ai_matcher.find_top_jobs(resume.parsed_text, jobs, top_k=10)
+    return {"matches": matches}
