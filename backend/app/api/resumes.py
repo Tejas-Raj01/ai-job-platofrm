@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.models.domain import User, Resume, JobPosting, AnalysisResult
 from app.services.pdf_parser import document_processor
 from app.services.ai_matcher import ai_matcher
-from app.services.scraper import dynamic_scraper
+from app.services.job_searcher import dynamic_scraper
 
 router = APIRouter()
 
@@ -76,7 +76,7 @@ def match_resume(resume_id: int, job_id: int, db: Session = Depends(get_db)):
     }
 
 @router.post("/{resume_id}/analyze-and-fetch")
-def analyze_and_fetch_jobs(resume_id: int, db: Session = Depends(get_db)):
+async def analyze_and_fetch_jobs(resume_id: int, db: Session = Depends(get_db)):
     """Dynamic Reverse-Search workflow matching specific user requirements."""
     resume = db.query(Resume).filter(Resume.id == resume_id).first()
     if not resume:
@@ -85,12 +85,12 @@ def analyze_and_fetch_jobs(resume_id: int, db: Session = Depends(get_db)):
     # 1. Extract highly condensed search string
     keywords = ai_matcher.extract_search_keywords(resume.parsed_text)
     
-    # 2. Dynamically scrape jobs from Remotive API
-    scraped_data = dynamic_scraper.scrape_jobs_for_profile(keywords, limit=15)
+    # 2. Dynamically scrape jobs concurrently via multiple providers (Wellfound + JSearch)
+    scraped_data = await dynamic_scraper.scrape_jobs_for_profile(keywords, limit=15)
     
     if not scraped_data:
         # Fallback search if specific keywords return nothing
-        scraped_data = dynamic_scraper.scrape_jobs_for_profile("Software", limit=10)
+        scraped_data = await dynamic_scraper.scrape_jobs_for_profile("Software", limit=10)
         if not scraped_data:
             return {"matches": []}
         

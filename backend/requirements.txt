@@ -20,3 +20,4 @@ duckduckgo-search
 html2text
 langchain-huggingface
 langchain-groq
+playwright

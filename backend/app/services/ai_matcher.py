@@ -2,6 +2,7 @@ import json
 import re
 import time
 import requests
+import numpy as np
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
@@ -84,25 +85,26 @@ class AIMatcher:
 
     def calculate_similarity(self, resume_text: str, jd_text: str) -> float:
         """
-        Embeds both texts and computes cosine similarity using ChromaDB locally.
+        Embeds both texts and computes cosine similarity mathematically using numpy.
         """
         try:
-            # Create a temporary in-memory chroma store with the JD
-            vectorstore = Chroma.from_texts(
-                texts=[jd_text],
-                embedding=self.embeddings
-            )
-            # Perform similarity search with score
-            # similarity_search_with_score returns (Document, score) where score is L2 distance for Chroma
-            results = vectorstore.similarity_search_with_score(resume_text, k=1)
-            if not results:
+            # Generate embeddings
+            resume_vector = np.array(self.embeddings.embed_query(resume_text))
+            jd_vector = np.array(self.embeddings.embed_query(jd_text))
+            
+            # Calculate Cosine Similarity
+            norm_resume = np.linalg.norm(resume_vector)
+            norm_jd = np.linalg.norm(jd_vector)
+            
+            if norm_resume == 0 or norm_jd == 0:
                 return 0.0
                 
-            distance = results[0][1]
-            # Convert L2 distance to similarity score (0 to 100)
-            # Smaller distance means higher similarity.
-            similarity = max(0.0, 100.0 - (distance * 50.0))
-            return round(min(100.0, similarity), 2)
+            cosine_sim = np.dot(resume_vector, jd_vector) / (norm_resume * norm_jd)
+            score = round(float(max(0.0, min(1.0, cosine_sim))) * 100.0, 2)
+            
+            # Phase 3: Deep logging
+            print(f"Vector Match Score: {score}")
+            return score
         except Exception as e:
             print(f"Embedding error: {e}")
             return 0.0
@@ -128,37 +130,38 @@ Respond ONLY with the search string and nothing else:'''
 
     def find_top_jobs(self, resume_text: str, jobs: list, top_k: int = 10) -> list:
         """
-        Embeds a list of jobs and finds the top K matches for the resume.
+        Embeds a list of jobs and finds the top K matches for the resume using mathematical Cosine Similarity.
         """
         if not jobs:
             return []
             
         try:
-            texts = [job.description for job in jobs]
-            metadatas = [{"id": job.id, "title": job.title, "company": job.company} for job in jobs]
-            
-            vectorstore = Chroma.from_texts(
-                texts=texts,
-                metadatas=metadatas,
-                embedding=self.embeddings
-            )
-            
-            results = vectorstore.similarity_search_with_score(resume_text, k=min(top_k, len(jobs)))
+            resume_vector = np.array(self.embeddings.embed_query(resume_text))
+            norm_resume = np.linalg.norm(resume_vector)
+            if norm_resume == 0:
+                return []
             
             matches = []
-            for doc, distance in results:
-                similarity = max(0.0, 100.0 - (distance * 50.0))
-                score = round(min(100.0, similarity), 2)
+            for job in jobs:
+                jd_vector = np.array(self.embeddings.embed_query(job.description))
+                norm_jd = np.linalg.norm(jd_vector)
+                
+                if norm_jd == 0:
+                    continue
+                    
+                cosine_sim = np.dot(resume_vector, jd_vector) / (norm_resume * norm_jd)
+                score = round(float(max(0.0, min(1.0, cosine_sim))) * 100.0, 2)
+                
                 matches.append({
-                    "job_id": doc.metadata["id"],
-                    "title": doc.metadata["title"],
-                    "company": doc.metadata["company"],
+                    "job_id": job.id,
+                    "title": job.title,
+                    "company": job.company,
                     "match_score": score
                 })
                 
-            return sorted(matches, key=lambda x: x["match_score"], reverse=True)
+            return sorted(matches, key=lambda x: x["match_score"], reverse=True)[:top_k]
         except Exception as e:
-            print(f"Top jobs error: {e}")
+            print(f"Top jobs mathematical error: {e}")
             return []
 
     def analyze_gaps(self, resume_text: str, jd_text: str) -> dict:
