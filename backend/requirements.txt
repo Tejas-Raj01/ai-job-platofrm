@@ -12,12 +12,11 @@ PyPDF2
 langchain
 langchain-community
 langchain-google-genai
-chromadb
-sentence-transformers
+scikit-learn
+scipy
 python-multipart
 pytest
 duckduckgo-search
 html2text
-langchain-huggingface
 langchain-groq
 playwright

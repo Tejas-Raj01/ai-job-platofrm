@@ -2,9 +2,8 @@ import json
 import re
 import time
 import requests
-import numpy as np
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
 from app.core.config import settings
@@ -43,8 +42,7 @@ def clean_llm_json_output(text: str) -> str:
 
 class AIMatcher:
     def __init__(self):
-        # We use a lightweight local model for vector embeddings to calculate similarity
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        # We use a lightweight mathematical TF-IDF algorithm to calculate similarity using zero RAM
         self.api_key = getattr(settings, "GROQ_API_KEY", "dummy_key")
         self.active_models = get_active_groq_models(self.api_key)
 
@@ -85,28 +83,25 @@ class AIMatcher:
 
     def calculate_similarity(self, resume_text: str, jd_text: str) -> float:
         """
-        Embeds both texts and computes cosine similarity mathematically using numpy.
+        Calculates cosine similarity mathematically using TF-IDF for zero-RAM impact.
         """
         try:
-            # Generate embeddings
-            resume_vector = np.array(self.embeddings.embed_query(resume_text))
-            jd_vector = np.array(self.embeddings.embed_query(jd_text))
-            
-            # Calculate Cosine Similarity
-            norm_resume = np.linalg.norm(resume_vector)
-            norm_jd = np.linalg.norm(jd_vector)
-            
-            if norm_resume == 0 or norm_jd == 0:
+            if not resume_text.strip() or not jd_text.strip():
                 return 0.0
                 
-            cosine_sim = np.dot(resume_vector, jd_vector) / (norm_resume * norm_jd)
+            vectorizer = TfidfVectorizer(stop_words='english')
+            tfidf_matrix = vectorizer.fit_transform([resume_text, jd_text])
+            
+            # Calculate Cosine Similarity between the 2 texts
+            cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+            
             score = round(float(max(0.0, min(1.0, cosine_sim))) * 100.0, 2)
             
             # Phase 3: Deep logging
-            print(f"Vector Match Score: {score}")
+            print(f"TF-IDF Match Score: {score}")
             return score
         except Exception as e:
-            print(f"Embedding error: {e}")
+            print(f"Similarity error: {e}")
             return 0.0
 
     def extract_search_keywords(self, resume_text: str) -> str:
@@ -130,28 +125,28 @@ Respond ONLY with the search string and nothing else:'''
 
     def find_top_jobs(self, resume_text: str, jobs: list, top_k: int = 10) -> list:
         """
-        Embeds a list of jobs and finds the top K matches for the resume using mathematical Cosine Similarity.
+        Finds the top K matches for the resume using TF-IDF Cosine Similarity for zero-RAM impact.
         """
-        if not jobs:
+        if not jobs or not resume_text.strip():
             return []
             
         try:
-            resume_vector = np.array(self.embeddings.embed_query(resume_text))
-            norm_resume = np.linalg.norm(resume_vector)
-            if norm_resume == 0:
-                return []
+            # Create a corpus where the first document is the resume, and the rest are job descriptions
+            corpus = [resume_text] + [job.description for job in jobs]
+            
+            vectorizer = TfidfVectorizer(stop_words='english')
+            tfidf_matrix = vectorizer.fit_transform(corpus)
+            
+            # The resume is the first row (index 0). The jobs are the rest.
+            resume_vector = tfidf_matrix[0:1]
+            job_vectors = tfidf_matrix[1:]
+            
+            # Compute cosine similarities of the resume against all jobs in one vectorized operation
+            similarities = cosine_similarity(resume_vector, job_vectors)[0]
             
             matches = []
-            for job in jobs:
-                jd_vector = np.array(self.embeddings.embed_query(job.description))
-                norm_jd = np.linalg.norm(jd_vector)
-                
-                if norm_jd == 0:
-                    continue
-                    
-                cosine_sim = np.dot(resume_vector, jd_vector) / (norm_resume * norm_jd)
-                score = round(float(max(0.0, min(1.0, cosine_sim))) * 100.0, 2)
-                
+            for idx, job in enumerate(jobs):
+                score = round(float(max(0.0, min(1.0, similarities[idx]))) * 100.0, 2)
                 matches.append({
                     "job_id": job.id,
                     "title": job.title,
@@ -161,7 +156,7 @@ Respond ONLY with the search string and nothing else:'''
                 
             return sorted(matches, key=lambda x: x["match_score"], reverse=True)[:top_k]
         except Exception as e:
-            print(f"Top jobs mathematical error: {e}")
+            print(f"Top jobs TF-IDF error: {e}")
             return []
 
     def analyze_gaps(self, resume_text: str, jd_text: str) -> dict:
