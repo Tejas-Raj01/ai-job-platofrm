@@ -6,6 +6,8 @@ import JobSelector from './components/JobSelector';
 import ProcessingLoader from './components/ProcessingLoader';
 import AnalysisDashboard from './components/AnalysisDashboard';
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export default function App() {
   const [resumeId, setResumeId] = useState(() => localStorage.getItem('nexus_resume_id') || null);
   const [resumeName, setResumeName] = useState(() => localStorage.getItem('nexus_resume_name') || null);
@@ -36,7 +38,7 @@ export default function App() {
     setLoading(true);
     setLoadingMsg("Analyzing your custom job description...");
     try {
-      const response = await fetch(`http://localhost:8000/api/resumes/${resumeId}/match_custom`, {
+      const response = await fetch(`${API_URL}/api/resumes/${resumeId}/match_custom`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -67,7 +69,7 @@ export default function App() {
     setLoading(true);
     setLoadingMsg("Extracting keywords & searching live internet job boards...");
     try {
-      const response = await fetch(`http://localhost:8000/api/resumes/${resumeId}/analyze-and-fetch`, {
+      const response = await fetch(`${API_URL}/api/resumes/${resumeId}/analyze-and-fetch`, {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Failed to fetch and analyze jobs');
@@ -95,7 +97,7 @@ export default function App() {
     setLoading(true);
     setLoadingMsg("Running Gemini 1.5 Pro to analyze specific skill gaps...");
     try {
-      const response = await fetch(`http://localhost:8000/api/resumes/match?resume_id=${resumeId}&job_id=${idToUse}`, {
+      const response = await fetch(`${API_URL}/api/resumes/match?resume_id=${resumeId}&job_id=${idToUse}`, {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Match failed');

@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UploadCloud, FileText, CheckCircle2, Loader2, X } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export default function FileUpload({ onUploadComplete, resumeId }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -49,7 +51,7 @@ export default function FileUpload({ onUploadComplete, resumeId }) {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8000/api/resumes/upload?user_id=1', {
+      const response = await fetch(`${API_URL}/api/resumes/upload?user_id=1`, {
         method: 'POST',
         body: formData,
       });

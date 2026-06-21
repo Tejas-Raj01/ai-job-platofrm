@@ -1,14 +1,17 @@
-FROM node:20-alpine
-
+# Build stage
+FROM node:20-alpine AS build
 WORKDIR /app
-
-COPY package.json package-lock.json* ./
+COPY package*.json ./
 RUN npm install
-
 COPY . .
+RUN npm run build
 
-# Expose Vite's default port
-EXPOSE 5173
-
-# Run the dev server, host 0.0.0.0 ensures it's accessible from outside container
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Production stage
+FROM nginx:alpine
+# Copy built assets from builder
+COPY --from=build /app/dist /usr/share/nginx/html
+# Add a custom nginx.conf to handle React Router (if needed) and inject env vars if necessary
+# For Vite, environment variables are baked in at build time.
+# On Railway, environment variables are available during build, so VITE_API_URL will be baked in!
+# Railway provides the PORT environment variable. We need Nginx to listen on it.
+CMD sed -i -e 's/listen  *80;/listen '"$PORT"';/' /etc/nginx/conf.d/default.conf && nginx -g "daemon off;"
