@@ -9,7 +9,10 @@ pkgs.mkShell {
     # Required system dependencies for building packages
     gcc
     postgresql.lib
+    stdenv.cc.cc.lib
   ];
+
+  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ];
 
   shellHook = ''
     echo "NixOS Python Dev Environment Loaded!"
